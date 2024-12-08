@@ -114,44 +114,41 @@ def display_message(message):
     dms.display_buf = display_buf
     dms.update_display()
 
-# Function to calculate the gradient color based on distance and brightness
 def calculate_color(distance, brightness=1.0):
     """
     Calculate an RGB color that transitions:
-    - Blue to Green (BLUE_TO_GREEN_RANGE)
-    - Green to Red (GREEN_TO_RED_RANGE)
+    - Blue to Green to Red, with Green peaking at the midpoint.
     
     Args:
         distance (int): The measured distance in millimeters.
         brightness (float): A scaling factor between 0.0 (off) and 1.0 (full brightness).
     """
-    # Define the distance ranges and transition colors
-    DISTANCE_RANGE = (100, 500)  # Min and max distances
-    BLUE_TO_GREEN_RANGE = (500, 250)  # Transition range for Blue to Green
-    GREEN_TO_RED_RANGE = (250, 100)  # Transition range for Green to Red
+    # Define the distance range
+    DISTANCE_RANGE = (200, 400)  # Min and max distances
+    min_distance, max_distance = DISTANCE_RANGE
+
+    # Calculate the midpoint where green is maximized
+    midpoint = (min_distance + max_distance) // 2
 
     # Cap the distance to the defined range
-    min_distance, max_distance = DISTANCE_RANGE
     distance = max(min_distance, min(distance, max_distance))
 
     # Ensure brightness is within the range [0.0, 1.0]
     brightness = max(0.0, min(1.0, brightness))
 
-    # Transition from Blue to Green
-    if BLUE_TO_GREEN_RANGE[1] <= distance <= BLUE_TO_GREEN_RANGE[0]:
-        start, end = BLUE_TO_GREEN_RANGE
-        ratio = (start - distance) / (start - end)  # Normalize to [0, 1]
-        red_intensity = 0
+    # Transition from Red to Green (Min to Midpoint)
+    if distance <= midpoint:
+        ratio = (distance - min_distance) / (midpoint - min_distance)  # Normalize to [0, 1]
+        red_intensity = int(255 * (1 - ratio) * brightness)
         green_intensity = int(255 * ratio * brightness)
-        blue_intensity = int(255 * (1 - ratio) * brightness)
-
-    # Transition from Green to Red
-    elif GREEN_TO_RED_RANGE[1] <= distance <= GREEN_TO_RED_RANGE[0]:
-        start, end = GREEN_TO_RED_RANGE
-        ratio = (start - distance) / (start - end)  # Normalize to [0, 1]
-        red_intensity = int(255 * ratio * brightness)
-        green_intensity = int(255 * (1 - ratio) * brightness)
         blue_intensity = 0
+
+    # Transition from Green to Blue (Midpoint to Max)
+    else:
+        ratio = (distance - midpoint) / (max_distance - midpoint)  # Normalize to [0, 1]
+        red_intensity = 0
+        green_intensity = int(255 * (1 - ratio) * brightness)
+        blue_intensity = int(255 * ratio * brightness)
 
     return (red_intensity, green_intensity, blue_intensity)
 
@@ -160,7 +157,7 @@ distance_samples = deque(maxlen=5)
 
 if __name__ == '__main__':
     try:
-        dms.brightness(1)
+        dms.brightness(2)
         sonar.setRGBMode(0)  # Set RGB mode to color light module
         while run_st:
             # Get distance from the sonar sensor
@@ -170,23 +167,18 @@ if __name__ == '__main__':
             # Add the new sample to the deque
             distance_samples.append(distance)
             
-            # Calculate the average of the last 10 samples
+            # Calculate the average of the last samples
             avg_distance = sum(distance_samples) // len(distance_samples)
             print(f"Averaged Distance: {avg_distance} mm")
             
-            # Determine message based on averaged distance
-            if avg_distance > 300:
-                message = "FAR"
-            elif 150 < avg_distance <= 300:
-                message = "MID"
-            else:
-                message = "NEAR"
+            # Format the averaged distance as DDD with zero-padding
+            distance_str = f"{avg_distance:03d}"
             
-            # Display the message on the dot matrix
-            display_message(message)
+            # Display the formatted distance on the dot matrix
+            display_message(distance_str)
             
             # Calculate and set the gradient color based on averaged distance
-            color = calculate_color(avg_distance, 0.1)
+            color = calculate_color(avg_distance, 0.2)
             sonar.setRGB(1, color)
             sonar.setRGB(0, color)
             
@@ -194,6 +186,8 @@ if __name__ == '__main__':
 
     except KeyboardInterrupt:
         dms.clear()
+        color = calculate_color(avg_distance, 0.2)
+        sonar.setRGB(1, color)
         sonar.setRGB(1, (0, 0, 0))
         sonar.setRGB(0, (0, 0, 0))
         print("\nDisplay cleared. Exiting program.")
