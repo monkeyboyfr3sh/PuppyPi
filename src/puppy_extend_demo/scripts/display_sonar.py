@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import signal
+from collections import deque
 from sensor import dot_matrix_sensor
 import sensor.Sonar as Sonar
 import sensor.MP3 as MP3
@@ -118,6 +119,9 @@ def calculate_color(distance):
 
     return (red_intensity, green_intensity, blue_intensity)
 
+# Maintain a deque to store the last 20 distance samples
+distance_samples = deque(maxlen=10)
+
 if __name__ == '__main__':
     try:
         dms.brightness(1)
@@ -127,15 +131,22 @@ if __name__ == '__main__':
             distance = sonar.getDistance()
             print(f"Distance: {distance} mm")
             
-            # Display the distance on the dot matrix
-            display_distance(distance)
+            # Add the new sample to the deque
+            distance_samples.append(distance)
             
-            # Calculate and set the gradient color based on distance
-            color = calculate_color(distance)
+            # Calculate the average of the last 20 samples
+            avg_distance = sum(distance_samples) // len(distance_samples)
+            print(f"Averaged Distance: {avg_distance} mm")
+            
+            # Display the averaged distance on the dot matrix
+            display_distance(avg_distance)
+            
+            # Calculate and set the gradient color based on averaged distance
+            color = calculate_color(avg_distance)
             sonar.setRGB(1, color)
             sonar.setRGB(0, color)
             
-            time.sleep(0.1)  # Update every 0.5 seconds
+            time.sleep(0.005)  # Update every 0.5 seconds
 
     except KeyboardInterrupt:
         dms.clear()
