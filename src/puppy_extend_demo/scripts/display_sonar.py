@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import threading
 import os
 import sys
 import time
@@ -8,46 +9,14 @@ from sensor import dot_matrix_sensor
 import sensor.Sonar as Sonar
 import sensor.MP3 as MP3
 
-# Ensure Python 3 is used
-if sys.version_info.major == 2:
-    print('Please run this program with python3!')
-    sys.exit(0)
-
-print('''
-**********************************************************
-********* 功能: 超声波传感器测距与点阵显示结合例程 *********
-**********************************************************
-----------------------------------------------------------
-Official website: https://www.hiwonder.com
-Online mall: https://hiwonder.tmall.com
-----------------------------------------------------------
-Tips:
- * 按下Ctrl+C可关闭此次程序运行，若失败请多次尝试！
-   (Press Ctrl+C to close this program, please try multiple times if it fails)
-----------------------------------------------------------
-''')
-
-# Initialize Dot Matrix Sensor
-dms = dot_matrix_sensor.TM1640(dio=7, clk=8)
-
-# Initialize Sonar Sensor
-sonar = Sonar.Sonar()
-
-# Initialize MP3 Module
-addr = 0x7b  # Sensor I2C address
-mp3 = MP3.MP3(addr)
-mp3.loopOff()
-mp3.volume(30)
-mp3.next()
-mp3.play()
-mp3.pause()
-
-# Handle Program Stop
+# Initialize global variables
 run_st = True
+
+# Handle program stop
 def Stop(signum, frame):
     global run_st
     run_st = False
-    print('关闭中...')
+    print('Stopping...')
     dms.clear()
     sonar.setRGB(1, (0, 0, 0))
     sonar.setRGB(0, (0, 0, 0))
@@ -152,42 +121,81 @@ def calculate_color(distance, brightness=1.0):
 
     return (red_intensity, green_intensity, blue_intensity)
 
-# Maintain a deque to store the last 10 distance samples
-distance_samples = deque(maxlen=5)
+class MP3Player(MP3.MP3):
+    def __init__(self, address=0x7b):
+        super().__init__(address)
+        self.loopOff()
+        self.volume(15)
+        # self.pause()
 
 if __name__ == '__main__':
+    distance_samples = deque(maxlen=10)
+    
     try:
+        # Initialize MP3 Module
+        player = MP3Player()
+        
+        # Initialize hardware
+        dms = dot_matrix_sensor.TM1640(dio=7, clk=8)
+        sonar = Sonar.Sonar()
+
+        # Timer for controlling display update frequency
+        display_update_interval = 0.1  # Update display every 0.1 seconds
+        last_display_update_time = time.time()
+
+        # Timer for MP3 playback
+        playback_duration = 2.0  # Play for 1 second
+        playback_start_time = None
+        is_playing = False
+
         dms.brightness(2)
         sonar.setRGBMode(0)  # Set RGB mode to color light module
+
         while run_st:
             # Get distance from the sonar sensor
             distance = sonar.getDistance()
-            print(f"Distance: {distance} mm")
             
             # Add the new sample to the deque
             distance_samples.append(distance)
             
             # Calculate the average of the last samples
             avg_distance = sum(distance_samples) // len(distance_samples)
-            print(f"Averaged Distance: {avg_distance} mm")
             
-            # Format the averaged distance as DDD with zero-padding
-            distance_str = f"{avg_distance:03d}"
-            
-            # Display the formatted distance on the dot matrix
-            display_message(distance_str)
-            
-            # Calculate and set the gradient color based on averaged distance
-            color = calculate_color(avg_distance, 0.2)
-            sonar.setRGB(1, color)
-            sonar.setRGB(0, color)
-            
-            time.sleep(0.005)  # Update every 0.5 seconds
+            # Check if the distance goes below 200 and start playback timer
+            if avg_distance < 200 and not is_playing:
+                is_playing = True
+                player.play()
+                playback_start_time = time.time()
 
-    except KeyboardInterrupt:
-        dms.clear()
-        color = calculate_color(avg_distance, 0.2)
-        sonar.setRGB(1, color)
-        sonar.setRGB(1, (0, 0, 0))
-        sonar.setRGB(0, (0, 0, 0))
-        print("\nDisplay cleared. Exiting program.")
+            # Stop playback after 1 second
+            if is_playing and (time.time() - playback_start_time >= playback_duration):
+                player.pause()
+                is_playing = False
+                playback_start_time = None
+
+            # Check if it's time to update the display
+            current_time = time.time()
+            if current_time - last_display_update_time >= display_update_interval:
+                last_display_update_time = current_time
+
+                # Format the averaged distance as DDD with zero-padding
+                distance_str = f"{avg_distance:03d}"
+
+                # Display the formatted distance on the dot matrix
+                display_message(distance_str)
+
+                # Calculate and set the gradient color based on averaged distance
+                color = calculate_color(avg_distance, 0.2)
+                sonar.setRGB(1, color)
+                sonar.setRGB(0, color)
+
+            time.sleep(0.001)  # Small delay for loop iteration
+
+    except Exception as e:
+        # Spam the off signals for 0.5 seconds
+        end_time = time.time() + 1
+        while time.time() < end_time:
+            dms.clear()
+            sonar.setRGB(0, (0, 0, 0))
+            sonar.setRGB(1, (0, 0, 0))
+            time.sleep(0.01)  # Send off signals every 10 milliseconds
