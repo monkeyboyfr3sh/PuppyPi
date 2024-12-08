@@ -64,33 +64,51 @@ class Song:
             self.note_queue.put((note, note_duration))
 
     def play_next_note(self, buzzer_pub, rgb_pub):
-        """Play the next note in the queue and sync LED with note."""
+        """Play the next note in the queue and sync both LEDs with the note."""
         if not self.note_queue.empty():
             note, note_duration = self.note_queue.get()
+            
+            # Create the buzzer message
             buzzer_msg = BuzzerState()
             buzzer_msg.freq = note.value
             buzzer_msg.on_time = note_duration
             buzzer_msg.off_time = 0.1
             buzzer_msg.repeat = 1
 
-            # Sync LED colors based on the note
+            # Create the RGB message for both LEDs
             rgb_msg = RGBsState()
-            led = RGBState()
-            led.id = 1  # Assuming LED 1 for simplicity
+            led_1 = RGBState()
+            led_1.id = 1
+
+            led_2 = RGBState()
+            led_2.id = 2
+
             if note == NoteFreq.REST:
-                led.r, led.g, led.b = 0, 0, 0  # Turn off LED during rest
+                # Turn off both LEDs during a rest
+                led_1.r, led_1.g, led_1.b = 0, 0, 0
+                led_2.r, led_2.g, led_2.b = 0, 0, 0
                 print(f"Rest for {note_duration:.2f} sec")
             else:
                 # Map note frequencies to colors (simple mapping example)
-                led.r = (note.value * 3) % 256
-                led.g = (note.value * 7) % 256
-                led.b = (note.value * 5) % 256
+                led_1.r = (note.value * 3) % 256
+                led_1.g = (note.value * 7) % 256
+                led_1.b = (note.value * 5) % 256
+
+                # Set the second LED to the same color as the first LED
+                led_2.r = led_1.r
+                led_2.g = led_1.g
+                led_2.b = led_1.b
+
                 print(f"Playing note: {note.name} ({note.value} Hz) for {note_duration:.2f} sec")
 
-            rgb_msg.data = [led]
+            # Add both LEDs to the RGB message
+            rgb_msg.data = [led_1, led_2]
+
+            # Publish the buzzer and RGB messages
             buzzer_pub.publish(buzzer_msg)
             rgb_pub.publish(rgb_msg)
 
+            # Schedule the next note to be played after the current note duration + pause
             threading.Timer(note_duration + buzzer_msg.off_time, self.play_next_note, [buzzer_pub, rgb_pub]).start()
         else:
             print(f"'{self.name}' complete!")
