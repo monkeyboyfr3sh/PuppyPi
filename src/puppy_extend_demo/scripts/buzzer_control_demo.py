@@ -3,6 +3,8 @@
 # Control buzzer to play a simple Christmas tune
 
 import sys
+import threading
+import queue
 import rospy
 from ros_robot_controller.msg import BuzzerState
 from enum import Enum
@@ -60,23 +62,59 @@ class Duration(Enum):
     EIGHTH = 0.125    # Eighth note
     SIXTEENTH = 0.0625 # Sixteenth note
 
-# Set BPM
-BPM = 300  # Adjust this value to control the tempo (e.g., 100 for slower, 150 for faster)
 
-# Calculate the duration of a whole note in seconds based on BPM
-WHOLE_NOTE_DURATION = 60 / BPM * 4  # 4 beats per whole note
+class Song:
+    """Class to represent a song with name, BPM, and notes."""
+    def __init__(self, name, bpm, notes):
+        self.name = name
+        self.bpm = bpm
+        self.notes = notes
+        self.whole_note_duration = 60 / bpm * 4  # Calculate the duration of a whole note based on BPM
+        self.note_queue = queue.Queue()
 
-# "Jingle Bells" note list ([note, duration])
-JINGLE_BELLS = [
+    def queue_notes(self):
+        """Queue up all notes to be played."""
+        for note, duration in self.notes:
+            note_duration = self.whole_note_duration * duration.value
+            self.note_queue.put((note, note_duration))
+
+    def play_next_note(self, buzzer_pub):
+        """Play the next note in the queue."""
+        if not self.note_queue.empty():
+            note, note_duration = self.note_queue.get()
+            buzzer_msg = BuzzerState()
+            buzzer_msg.freq = note.value
+            buzzer_msg.on_time = note_duration
+            buzzer_msg.off_time = 0.1  # Short pause between notes
+            buzzer_msg.repeat = 1
+
+            if note == NoteFreq.REST:
+                print(f"Rest for {note_duration:.2f} sec")
+            else:
+                print(f"Playing note: {note.name} ({note.value} Hz) for {note_duration:.2f} sec")
+
+            buzzer_pub.publish(buzzer_msg)
+            threading.Timer(note_duration + buzzer_msg.off_time, self.play_next_note, [buzzer_pub]).start()
+        else:
+            print(f"'{self.name}' complete!")
+
+    def play(self, buzzer_pub):
+        """Start playing the song asynchronously."""
+        print(f"Starting '{self.name}' at {self.bpm} BPM")
+        self.queue_notes()
+        self.play_next_note(buzzer_pub)
+
+# Define Songs
+jingle_bells = Song("Jingle Bells", 300, [
     (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.HALF),
     (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.HALF),
     (NoteFreq.E5, Duration.QUARTER), (NoteFreq.G5, Duration.QUARTER), (NoteFreq.C5, Duration.QUARTER), (NoteFreq.D5, Duration.QUARTER), (NoteFreq.E5, Duration.WHOLE),
     (NoteFreq.F5, Duration.QUARTER), (NoteFreq.F5, Duration.QUARTER), (NoteFreq.F5, Duration.QUARTER), (NoteFreq.F5, Duration.QUARTER),
     (NoteFreq.F5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER),
     (NoteFreq.E5, Duration.QUARTER), (NoteFreq.D5, Duration.QUARTER), (NoteFreq.D5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.D5, Duration.HALF), (NoteFreq.G5, Duration.HALF)
-]
+])
 
-FUR_ELISE = [
+fur_elise = Song("Für Elise", 220, [
     (NoteFreq.E5, Duration.EIGHTH), (NoteFreq.D_SHARP5, Duration.EIGHTH), (NoteFreq.E5, Duration.EIGHTH), (NoteFreq.D_SHARP5, Duration.EIGHTH),
     (NoteFreq.E5, Duration.EIGHTH), (NoteFreq.B4, Duration.EIGHTH), (NoteFreq.D5, Duration.EIGHTH), (NoteFreq.C5, Duration.EIGHTH),
     (NoteFreq.A4, Duration.QUARTER), (NoteFreq.REST, Duration.QUARTER),
@@ -92,37 +130,26 @@ FUR_ELISE = [
     (NoteFreq.C4, Duration.EIGHTH), (NoteFreq.E4, Duration.EIGHTH), (NoteFreq.A4, Duration.EIGHTH), (NoteFreq.B4, Duration.EIGHTH),
     (NoteFreq.REST, Duration.EIGHTH), (NoteFreq.E4, Duration.EIGHTH), (NoteFreq.C5, Duration.EIGHTH), (NoteFreq.B4, Duration.EIGHTH),
     (NoteFreq.A4, Duration.QUARTER)
-]
-
-def play_tune(buzzer_pub, tune, whole_note_duration):
-    for note, duration in tune:
-        note_duration = whole_note_duration * duration.value
-        buzzer_msg = BuzzerState()
-        buzzer_msg.freq = note.value
-        buzzer_msg.on_time = note_duration
-        buzzer_msg.off_time = 0.1  # Short pause between notes
-        buzzer_msg.repeat = 1
-
-        if note == NoteFreq.REST:
-            print(f"Rest for {duration.name.lower()} note (duration: {note_duration:.2f} sec)")
-        else:
-            print(f"Playing note: {note.name} ({note.value} Hz) for {duration.name.lower()} note (duration: {note_duration:.2f} sec)")
-
-        buzzer_pub.publish(buzzer_msg)
-        rospy.sleep(note_duration + buzzer_msg.off_time)  # Wait for note duration + pause
+])
 
 if __name__ == '__main__':
     try:
         # Initialize Node
-        rospy.init_node('buzzer_christmas_tune')
+        rospy.init_node('buzzer_song_player')
 
         buzzer_pub = rospy.Publisher("/ros_robot_controller/set_buzzer", BuzzerState, queue_size=1)
-        rospy.sleep(0.5)  # Delay
+        rospy.sleep(0.5)  # Delay for publisher setup
 
-        # Play "Jingle Bells" tune
-        play_tune(buzzer_pub, FUR_ELISE, WHOLE_NOTE_DURATION)
+        # Play songs
+        print(f"'Queueing {fur_elise.name}'")
+        fur_elise.play(buzzer_pub)
+        print(f"'Queued {fur_elise.name}'")
 
-        print("Jingle Bells tune complete!")
+        # jingle_bells.play(buzzer_pub)
+        # print(f"'{jingle_bells.name}' complete!")
+
+        # Keep the main thread alive
+        rospy.spin()
 
     except rospy.ROSInterruptException:
         print("Program interrupted before completion.")
