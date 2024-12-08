@@ -6,6 +6,7 @@ import sys
 import threading
 import queue
 import rospy
+import sensor.MP3 as MP3
 from ros_robot_controller.msg import BuzzerState, RGBState, RGBsState
 from enum import Enum
 
@@ -170,21 +171,30 @@ fur_elise = Song("Für Elise", 350, [
 ])
 
 if __name__ == '__main__':
+    
+    addr = 0x7b #传感器iic地址(sensor I2C address)
+    mp3 = MP3.MP3(addr)
+    mp3.volume(25)
+    # mp3.next()
+    mp3.play()
+    mp3.pause()
+
     try:
-        # Initialize Node
-        rospy.init_node('buzzer_song_player')
+        # # Initialize Node
+        rospy.init_node('dancing_dog')
 
-        buzzer_pub = rospy.Publisher("/ros_robot_controller/set_buzzer", BuzzerState, queue_size=1)
-        rgb_pub = rospy.Publisher("/ros_robot_controller/set_rgb", RGBsState, queue_size=1)
-        rospy.sleep(0.5)  # Delay for publisher setup
+        # buzzer_pub = rospy.Publisher("/ros_robot_controller/set_buzzer", BuzzerState, queue_size=1)
+        # rgb_pub = rospy.Publisher("/ros_robot_controller/set_rgb", RGBsState, queue_size=1)
+        # rospy.sleep(0.5)  # Delay for publisher setup
 
-        # Play songs in sequence
-        songs_to_play = [fur_elise, jingle_bells]
-        play_songs_in_sequence(buzzer_pub, rgb_pub, songs_to_play)
+        # # Play songs in sequence
+        # songs_to_play = [fur_elise, jingle_bells]
+        # play_songs_in_sequence(buzzer_pub, rgb_pub, songs_to_play)
 
         # Keep the main thread alive
-        rospy.spin()
+        # rospy.spin()
 
-    except rospy.ROSInterruptException:
+    except:
         print("Program interrupted before completion.")
+        # mp3.pause()
         sys.exit(0)
