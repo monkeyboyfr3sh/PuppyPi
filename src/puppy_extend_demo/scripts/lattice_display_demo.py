@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# 第8章 ROS机器狗拓展课程\4.传感器开发课程\第4课 点阵模块显示(8.ROS Robot Expanded Course\4.Sensor Development Course\Lesson 4 Dot-matrix Display)
 import os
 import sys
 import time
@@ -11,29 +10,127 @@ if sys.version_info.major == 2:
 
 print('''
 **********************************************************
-********************功能:点阵显示实验例程(function: dot-matrix display)********************
+******************** 功能:点阵显示实验例程 ********************
 **********************************************************
 ----------------------------------------------------------
-Official website:https://www.hiwonder.com
-Online mall:https://hiwonder.tmall.com
+Official website: https://www.hiwonder.com
+Online mall: https://hiwonder.tmall.com
 ----------------------------------------------------------
 Tips:
- * 按下Ctrl+C可关闭此次程序运行，若失败请多次尝试！(press Ctrl+C to close this program, please try multiple times if fail)
+ * 按下Ctrl+C可关闭此次程序运行，若失败请多次尝试！
+   (Press Ctrl+C to close this program, please try multiple times if it fails)
 ----------------------------------------------------------
 ''')
 
-# 点阵模块接扩展板上的IO7、IO8接口(connect the dot matrix module to the IO7 and IO8 interfaces on the expansion board)
+# Initialize dot matrix sensor
 dms = dot_matrix_sensor.TM1640(dio=7, clk=8)
 
+def display_hello():
+    """Display 'HELLO' on the dot matrix."""
+    dms.display_buf = [
+        0x7f, 0x08, 0x7f, 0x00,  # 'H'
+        0x7c, 0x54, 0x5c, 0x00,  # 'E'
+        0x7c, 0x40, 0x00,        # 'L'
+        0x7c, 0x40, 0x00,        # 'L'
+        0x38, 0x44, 0x38         # 'O'
+    ]
+    dms.update_display()
+    time.sleep(2)
+
+def display_bounce():
+    """Create a bouncing dot animation."""
+    for i in range(8):
+        dms.clear()
+        dms.set_bit(i, i, 1)
+        dms.update_display()
+        time.sleep(0.1)
+    for i in range(6, -1, -1):
+        dms.clear()
+        dms.set_bit(i, i, 1)
+        dms.update_display()
+        time.sleep(0.1)
+
+def display_scrolling_text(text):
+    """Scroll text across the full 16-column dot matrix display."""
+    # Character mapping for 5 characters: 'H', 'E', 'L', 'O', and a space
+    char_map = {
+        'A': [0x3E, 0x09, 0x09, 0x3E, 0x00],
+        'B': [0x3F, 0x25, 0x25, 0x1A, 0x00],
+        'C': [0x1E, 0x21, 0x21, 0x12, 0x00],
+        'D': [0x3F, 0x21, 0x21, 0x1E, 0x00],
+        'E': [0x3F, 0x25, 0x25, 0x21, 0x00],
+        'F': [0x3F, 0x05, 0x05, 0x01, 0x00],
+        'G': [0x1E, 0x21, 0x29, 0x3A, 0x00],
+        'H': [0x3F, 0x04, 0x04, 0x3F, 0x00],
+        'I': [0x21, 0x3F, 0x21, 0x00, 0x00],
+        'J': [0x10, 0x20, 0x21, 0x1F, 0x00],
+        'K': [0x3F, 0x04, 0x0A, 0x31, 0x00],
+        'L': [0x3F, 0x20, 0x20, 0x20, 0x00],
+        'M': [0x3F, 0x02, 0x04, 0x02, 0x3F],
+        'N': [0x3F, 0x02, 0x04, 0x3F, 0x00],
+        'O': [0x1E, 0x21, 0x21, 0x1E, 0x00],
+        'P': [0x3F, 0x09, 0x09, 0x06, 0x00],
+        'Q': [0x1E, 0x21, 0x11, 0x2E, 0x00],
+        'R': [0x3F, 0x09, 0x19, 0x26, 0x00],
+        'S': [0x26, 0x25, 0x25, 0x19, 0x00],
+        'T': [0x01, 0x01, 0x3F, 0x01, 0x01],
+        'U': [0x1F, 0x20, 0x20, 0x1F, 0x00],
+        'V': [0x0F, 0x10, 0x20, 0x10, 0x0F],
+        'W': [0x3F, 0x10, 0x08, 0x10, 0x3F],
+        'X': [0x31, 0x0A, 0x04, 0x0A, 0x31],
+        'Y': [0x03, 0x04, 0x38, 0x04, 0x03],
+        'Z': [0x31, 0x29, 0x25, 0x23, 0x00],
+        '0': [0x1E, 0x29, 0x25, 0x1E, 0x00],
+        '1': [0x22, 0x3F, 0x20, 0x00, 0x00],
+        '2': [0x32, 0x29, 0x29, 0x26, 0x00],
+        '3': [0x12, 0x21, 0x25, 0x1A, 0x00],
+        '4': [0x0C, 0x0A, 0x3F, 0x08, 0x00],
+        '5': [0x17, 0x25, 0x25, 0x19, 0x00],
+        '6': [0x1E, 0x25, 0x25, 0x18, 0x00],
+        '7': [0x01, 0x39, 0x05, 0x03, 0x00],
+        '8': [0x1A, 0x25, 0x25, 0x1A, 0x00],
+        '9': [0x06, 0x29, 0x29, 0x1E, 0x00],
+        ' ': [0x00, 0x00, 0x00, 0x00, 0x00],
+        '!': [0x00, 0x2F, 0x00, 0x00, 0x00],
+        '.': [0x20, 0x00, 0x00, 0x00, 0x00],
+        '-': [0x08, 0x08, 0x08, 0x00, 0x00],
+        '_': [0x20, 0x20, 0x20, 0x00, 0x00]
+    }
+
+    # Create a buffer by combining character patterns
+    text_buf = []
+    for char in text.upper():
+        text_buf.extend(char_map.get(char, char_map[' ']))
+        text_buf.append(0x00)  # Space between characters
+
+    # Add padding to scroll text fully off the display
+    text_buf += [0x00] * 16
+
+    # Scroll the buffer across the 16-column display
+    for i in range(len(text_buf) - 16 + 1):
+        dms.display_buf = text_buf[i:i + 16]
+        dms.update_display()
+        time.sleep(0.1)
+
+def display_alternating_patterns():
+    """Alternate between two patterns."""
+    pattern1 = [0x3c, 0x42, 0xa1, 0x85, 0x85, 0xa1, 0x42, 0x3c]  # Smiley face
+    pattern2 = [0x00, 0x66, 0x66, 0x00, 0x18, 0x3c, 0x18, 0x00]  # Heart pattern
+
+    for _ in range(5):
+        dms.display_buf = pattern1
+        dms.update_display()
+        time.sleep(0.5)
+
+        dms.display_buf = pattern2
+        dms.update_display()
+        time.sleep(0.5)
+
 if __name__ == '__main__':
-    # 显示'Hello'(display 'Hello')
-    while True:
-        try:
-            dms.display_buf=(0x7f, 0x08, 0x7f, 0x00, 0x7c, 0x54, 0x5c, 0x00,
-                              0x7c, 0x40, 0x00,0x7c, 0x40, 0x38, 0x44, 0x38)
-            dms.update_display()
-            time.sleep(5)
-        except KeyboardInterrupt:
-            dms.display_buf = [0]*16
-            dms.update_display()
-            break
+    try:
+        dms.brightness(1)
+        while True:
+            display_scrolling_text("haha")
+    except KeyboardInterrupt:
+        dms.clear()
+        print("\nDisplay cleared. Exiting program.")
