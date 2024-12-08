@@ -40,6 +40,9 @@ class Duration(Enum):
     EIGHTH = 0.25
     SIXTEENTH = 0.125
 
+# 设置节奏倍速 (Set tempo multiplier: < 1 for faster, > 1 for slower)
+TEMPO = 0.5  # Reduce this value to make the tempo faster
+
 # "Jingle Bells" 音符列表 ([note, duration])
 JINGLE_BELLS = [
     (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.HALF),
@@ -50,21 +53,21 @@ JINGLE_BELLS = [
     (NoteFreq.E5, Duration.QUARTER), (NoteFreq.D5, Duration.QUARTER), (NoteFreq.D5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.D5, Duration.HALF), (NoteFreq.G5, Duration.HALF)
 ]
 
-def play_tune(buzzer_pub, tune):
+def play_tune(buzzer_pub, tune, tempo):
     for note, duration in tune:
         buzzer_msg = BuzzerState()
         buzzer_msg.freq = note.value
-        buzzer_msg.on_time = duration.value
-        buzzer_msg.off_time = 0.1  # Short pause between notes
+        buzzer_msg.on_time = duration.value * tempo
+        buzzer_msg.off_time = 0.1 * tempo  # Short pause between notes
         buzzer_msg.repeat = 1
 
         if note == NoteFreq.REST:
-            print(f"Rest for {duration.name.lower()} note")
+            print(f"Rest for {duration.name.lower()} note (adjusted duration: {buzzer_msg.on_time:.2f} sec)")
         else:
-            print(f"Playing note: {note.name} ({note.value} Hz) for {duration.name.lower()} note")
+            print(f"Playing note: {note.name} ({note.value} Hz) for {duration.name.lower()} note (adjusted duration: {buzzer_msg.on_time:.2f} sec)")
 
         buzzer_pub.publish(buzzer_msg)
-        rospy.sleep(duration.value + 0.1)  # Wait for note duration + pause
+        rospy.sleep(buzzer_msg.on_time + buzzer_msg.off_time)  # Wait for note duration + pause
 
 if __name__ == '__main__':
     try:
@@ -75,7 +78,7 @@ if __name__ == '__main__':
         rospy.sleep(0.5)  # 延时 (Delay)
 
         # 播放 "Jingle Bells" (Play Jingle Bells tune)
-        play_tune(buzzer_pub, JINGLE_BELLS)
+        play_tune(buzzer_pub, JINGLE_BELLS, TEMPO)
 
         print("Jingle Bells tune complete!")
 
