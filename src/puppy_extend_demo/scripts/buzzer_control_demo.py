@@ -4,6 +4,7 @@
 
 import rospy
 from ros_robot_controller.msg import BuzzerState
+from enum import Enum
 
 # 控制蜂鸣器 (Control Buzzer)
 
@@ -20,40 +21,50 @@ Tips:
 ----------------------------------------------------------
 ''')
 
-# 音符频率表 (Note frequencies in Hz)
-NOTE_FREQS = {
-    "B4": 494,
-    "C5": 523,
-    "D5": 587,
-    "E5": 659,
-    "F5": 698,
-    "G5": 784,
-    "A5": 880
-}
+class NoteFreq(Enum):
+    """Enumeration for musical note frequencies."""
+    B4 = 494
+    C5 = 523
+    D5 = 587
+    E5 = 659
+    F5 = 698
+    G5 = 784
+    A5 = 880
+    REST = 0
 
-# "Jingle Bells" 音符列表 ([note, duration_in_seconds])
+class Duration(Enum):
+    """Enumeration for note durations in seconds."""
+    WHOLE = 2.0
+    HALF = 1.0
+    QUARTER = 0.5
+    EIGHTH = 0.25
+    SIXTEENTH = 0.125
+
+# "Jingle Bells" 音符列表 ([note, duration])
 JINGLE_BELLS = [
-    ("E5", 0.5), ("E5", 0.5), ("E5", 1.0),
-    ("E5", 0.5), ("E5", 0.5), ("E5", 1.0),
-    ("E5", 0.5), ("G5", 0.5), ("C5", 0.5), ("D5", 0.5), ("E5", 2.0),
-    ("F5", 0.5), ("F5", 0.5), ("F5", 0.5), ("F5", 0.5),
-    ("F5", 0.5), ("E5", 0.5), ("E5", 0.5), ("E5", 0.5), ("E5", 0.5),
-    ("E5", 0.5), ("D5", 0.5), ("D5", 0.5), ("E5", 0.5), ("D5", 1.0), ("G5", 1.0)
+    (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.HALF),
+    (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.HALF),
+    (NoteFreq.E5, Duration.QUARTER), (NoteFreq.G5, Duration.QUARTER), (NoteFreq.C5, Duration.QUARTER), (NoteFreq.D5, Duration.QUARTER), (NoteFreq.E5, Duration.WHOLE),
+    (NoteFreq.F5, Duration.QUARTER), (NoteFreq.F5, Duration.QUARTER), (NoteFreq.F5, Duration.QUARTER), (NoteFreq.F5, Duration.QUARTER),
+    (NoteFreq.F5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER),
+    (NoteFreq.E5, Duration.QUARTER), (NoteFreq.D5, Duration.QUARTER), (NoteFreq.D5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.D5, Duration.HALF), (NoteFreq.G5, Duration.HALF)
 ]
 
 def play_tune(buzzer_pub, tune):
     for note, duration in tune:
-        if note in NOTE_FREQS:
-            freq = NOTE_FREQS[note]
-            buzzer_msg = BuzzerState()
-            buzzer_msg.freq = freq
-            buzzer_msg.on_time = duration
-            buzzer_msg.off_time = 0.1  # Short pause between notes
-            buzzer_msg.repeat = 1
+        buzzer_msg = BuzzerState()
+        buzzer_msg.freq = note.value
+        buzzer_msg.on_time = duration.value
+        buzzer_msg.off_time = 0.1  # Short pause between notes
+        buzzer_msg.repeat = 1
 
-            print(f"Playing note: {note} ({freq} Hz) for {duration} sec")
-            buzzer_pub.publish(buzzer_msg)
-            rospy.sleep(duration + 0.1)  # Wait for note duration + pause
+        if note == NoteFreq.REST:
+            print(f"Rest for {duration.name.lower()} note")
+        else:
+            print(f"Playing note: {note.name} ({note.value} Hz) for {duration.name.lower()} note")
+
+        buzzer_pub.publish(buzzer_msg)
+        rospy.sleep(duration.value + 0.1)  # Wait for note duration + pause
 
 if __name__ == '__main__':
     try:
