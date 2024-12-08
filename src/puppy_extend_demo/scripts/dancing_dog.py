@@ -112,6 +112,13 @@ class Song:
             threading.Timer(note_duration + buzzer_msg.off_time, self.play_next_note, [buzzer_pub, rgb_pub]).start()
         else:
             print(f"'{self.name}' complete!")
+            # Turn off both LEDs when the song is complete
+            rgb_msg = RGBsState()
+            led_1 = RGBState(id=1, r=0, g=0, b=0)
+            led_2 = RGBState(id=2, r=0, g=0, b=0)
+            rgb_msg.data = [led_1, led_2]
+            rgb_pub.publish(rgb_msg)
+
             if self.on_complete:
                 self.on_complete()
 
