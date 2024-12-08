@@ -50,31 +50,25 @@ def Stop(signum, frame):
 
 signal.signal(signal.SIGINT, Stop)
 
-# Character mapping for static text
+# Character mapping for fixed messages
 char_map = {
-    '0': [0x1E, 0x29, 0x25, 0x1E, 0x00],
-    '1': [0x22, 0x3F, 0x20, 0x00, 0x00],
-    '2': [0x32, 0x29, 0x29, 0x26, 0x00],
-    '3': [0x12, 0x21, 0x25, 0x1A, 0x00],
-    '4': [0x0C, 0x0A, 0x3F, 0x08, 0x00],
-    '5': [0x17, 0x25, 0x25, 0x19, 0x00],
-    '6': [0x1E, 0x25, 0x25, 0x18, 0x00],
-    '7': [0x01, 0x39, 0x05, 0x03, 0x00],
-    '8': [0x1A, 0x25, 0x25, 0x1A, 0x00],
-    '9': [0x06, 0x29, 0x29, 0x1E, 0x00],
+    'F': [0x3F, 0x05, 0x05, 0x01, 0x00],
+    'A': [0x3E, 0x09, 0x09, 0x3E, 0x00],
+    'R': [0x3F, 0x09, 0x19, 0x26, 0x00],
     'M': [0x3F, 0x02, 0x04, 0x02, 0x3F],
+    'I': [0x21, 0x3F, 0x21, 0x00, 0x00],
+    'D': [0x3F, 0x21, 0x21, 0x1E, 0x00],
+    'N': [0x3F, 0x06, 0x18, 0x3F, 0x00],
+    'E': [0x3F, 0x25, 0x25, 0x21, 0x00],
     ' ': [0x00, 0x00, 0x00, 0x00, 0x00]  # Space character
 }
 
-# Function to display the distance on the dot matrix
-def display_distance(distance):
-    """Format the distance and display it on the dot matrix."""
-    # Limit the distance to 3 digits for display purposes
-    distance_str = f"{distance}MM"[:5]  # E.g., "123MM"
-    
+# Function to display a message on the dot matrix
+def display_message(message):
+    """Display a fixed message on the dot matrix."""
     # Create the display buffer
     display_buf = []
-    for char in distance_str:
+    for char in message:
         display_buf.extend(char_map.get(char, char_map[' ']))
         display_buf.append(0x00)  # Space between characters
     
@@ -85,12 +79,16 @@ def display_distance(distance):
     dms.display_buf = display_buf
     dms.update_display()
 
-# Function to calculate the gradient color based on distance
-def calculate_color(distance):
+# Function to calculate the gradient color based on distance and brightness
+def calculate_color(distance, brightness=1.0):
     """
     Calculate an RGB color that transitions:
     - Blue to Green (BLUE_TO_GREEN_RANGE)
     - Green to Red (GREEN_TO_RED_RANGE)
+    
+    Args:
+        distance (int): The measured distance in millimeters.
+        brightness (float): A scaling factor between 0.0 (off) and 1.0 (full brightness).
     """
     # Define the distance ranges and transition colors
     DISTANCE_RANGE = (100, 500)  # Min and max distances
@@ -101,26 +99,29 @@ def calculate_color(distance):
     min_distance, max_distance = DISTANCE_RANGE
     distance = max(min_distance, min(distance, max_distance))
 
+    # Ensure brightness is within the range [0.0, 1.0]
+    brightness = max(0.0, min(1.0, brightness))
+
     # Transition from Blue to Green
     if BLUE_TO_GREEN_RANGE[1] <= distance <= BLUE_TO_GREEN_RANGE[0]:
         start, end = BLUE_TO_GREEN_RANGE
         ratio = (start - distance) / (start - end)  # Normalize to [0, 1]
         red_intensity = 0
-        green_intensity = int(255 * ratio)
-        blue_intensity = int(255 * (1 - ratio))
+        green_intensity = int(255 * ratio * brightness)
+        blue_intensity = int(255 * (1 - ratio) * brightness)
 
     # Transition from Green to Red
     elif GREEN_TO_RED_RANGE[1] <= distance <= GREEN_TO_RED_RANGE[0]:
         start, end = GREEN_TO_RED_RANGE
         ratio = (start - distance) / (start - end)  # Normalize to [0, 1]
-        red_intensity = int(255 * ratio)
-        green_intensity = int(255 * (1 - ratio))
+        red_intensity = int(255 * ratio * brightness)
+        green_intensity = int(255 * (1 - ratio) * brightness)
         blue_intensity = 0
 
     return (red_intensity, green_intensity, blue_intensity)
 
-# Maintain a deque to store the last 20 distance samples
-distance_samples = deque(maxlen=10)
+# Maintain a deque to store the last 10 distance samples
+distance_samples = deque(maxlen=5)
 
 if __name__ == '__main__':
     try:
@@ -134,15 +135,23 @@ if __name__ == '__main__':
             # Add the new sample to the deque
             distance_samples.append(distance)
             
-            # Calculate the average of the last 20 samples
+            # Calculate the average of the last 10 samples
             avg_distance = sum(distance_samples) // len(distance_samples)
             print(f"Averaged Distance: {avg_distance} mm")
             
-            # Display the averaged distance on the dot matrix
-            display_distance(avg_distance)
+            # Determine message based on averaged distance
+            if avg_distance > 300:
+                message = "FAR"
+            elif 150 < avg_distance <= 300:
+                message = "MID"
+            else:
+                message = "NEAR"
+            
+            # Display the message on the dot matrix
+            display_message(message)
             
             # Calculate and set the gradient color based on averaged distance
-            color = calculate_color(avg_distance)
+            color = calculate_color(avg_distance, 0.1)
             sonar.setRGB(1, color)
             sonar.setRGB(0, color)
             
