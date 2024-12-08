@@ -24,13 +24,32 @@ Tips:
 
 class NoteFreq(Enum):
     """Enumeration for musical note frequencies."""
+    C4 = 262
+    C_SHARP4 = 277
+    D4 = 294
+    D_SHARP4 = 311
+    E4 = 330
+    F4 = 349
+    F_SHARP4 = 370
+    G4 = 392
+    G_SHARP4 = 415
+    A4 = 440
+    A_SHARP4 = 466
     B4 = 494
+    
     C5 = 523
+    C_SHARP5 = 554
     D5 = 587
+    D_SHARP5 = 622
     E5 = 659
     F5 = 698
+    F_SHARP5 = 740
     G5 = 784
+    G_SHARP5 = 831
     A5 = 880
+    A_SHARP5 = 932
+    B5 = 988
+    
     REST = 0
 
 class Duration(Enum):
@@ -55,6 +74,24 @@ JINGLE_BELLS = [
     (NoteFreq.F5, Duration.QUARTER), (NoteFreq.F5, Duration.QUARTER), (NoteFreq.F5, Duration.QUARTER), (NoteFreq.F5, Duration.QUARTER),
     (NoteFreq.F5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER),
     (NoteFreq.E5, Duration.QUARTER), (NoteFreq.D5, Duration.QUARTER), (NoteFreq.D5, Duration.QUARTER), (NoteFreq.E5, Duration.QUARTER), (NoteFreq.D5, Duration.HALF), (NoteFreq.G5, Duration.HALF)
+]
+
+FUR_ELISE = [
+    (NoteFreq.E5, Duration.EIGHTH), (NoteFreq.D_SHARP5, Duration.EIGHTH), (NoteFreq.E5, Duration.EIGHTH), (NoteFreq.D_SHARP5, Duration.EIGHTH),
+    (NoteFreq.E5, Duration.EIGHTH), (NoteFreq.B4, Duration.EIGHTH), (NoteFreq.D5, Duration.EIGHTH), (NoteFreq.C5, Duration.EIGHTH),
+    (NoteFreq.A4, Duration.QUARTER), (NoteFreq.REST, Duration.QUARTER),
+
+    (NoteFreq.C4, Duration.EIGHTH), (NoteFreq.E4, Duration.EIGHTH), (NoteFreq.A4, Duration.EIGHTH), (NoteFreq.B4, Duration.EIGHTH),
+    (NoteFreq.REST, Duration.EIGHTH), (NoteFreq.E4, Duration.EIGHTH), (NoteFreq.G_SHARP4, Duration.EIGHTH), (NoteFreq.B4, Duration.EIGHTH),
+    (NoteFreq.C5, Duration.QUARTER), (NoteFreq.REST, Duration.QUARTER),
+
+    (NoteFreq.E4, Duration.EIGHTH), (NoteFreq.E5, Duration.EIGHTH), (NoteFreq.D_SHARP5, Duration.EIGHTH), (NoteFreq.E5, Duration.EIGHTH),
+    (NoteFreq.D_SHARP5, Duration.EIGHTH), (NoteFreq.E5, Duration.EIGHTH), (NoteFreq.B4, Duration.EIGHTH), (NoteFreq.D5, Duration.EIGHTH),
+    (NoteFreq.C5, Duration.EIGHTH), (NoteFreq.A4, Duration.QUARTER),
+
+    (NoteFreq.C4, Duration.EIGHTH), (NoteFreq.E4, Duration.EIGHTH), (NoteFreq.A4, Duration.EIGHTH), (NoteFreq.B4, Duration.EIGHTH),
+    (NoteFreq.REST, Duration.EIGHTH), (NoteFreq.E4, Duration.EIGHTH), (NoteFreq.C5, Duration.EIGHTH), (NoteFreq.B4, Duration.EIGHTH),
+    (NoteFreq.A4, Duration.QUARTER)
 ]
 
 def play_tune(buzzer_pub, tune, whole_note_duration):
@@ -83,7 +120,7 @@ if __name__ == '__main__':
         rospy.sleep(0.5)  # Delay
 
         # Play "Jingle Bells" tune
-        play_tune(buzzer_pub, JINGLE_BELLS, WHOLE_NOTE_DURATION)
+        play_tune(buzzer_pub, FUR_ELISE, WHOLE_NOTE_DURATION)
 
         print("Jingle Bells tune complete!")
 
