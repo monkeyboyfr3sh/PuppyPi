@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #coding=utf8
-# 控制蜂鸣器播放多个频率 (Control buzzer to play multiple frequencies)
+# 控制蜂鸣器播放简单圣诞歌曲 (Control buzzer to play a simple Christmas tune)
 
 import rospy
 from ros_robot_controller.msg import BuzzerState
@@ -9,7 +9,7 @@ from ros_robot_controller.msg import BuzzerState
 
 print('''
 **********************************************************
-*************** 功能: 蜂鸣器多频率控制例程 (Buzzer Multi-Frequency Control Routine) ***************
+*************** 功能: 蜂鸣器播放圣诞歌曲 (Buzzer Christmas Tune Control) ***************
 **********************************************************
 ----------------------------------------------------------
 Official website: https://www.hiwonder.com
@@ -20,38 +20,53 @@ Tips:
 ----------------------------------------------------------
 ''')
 
-def play_frequencies(buzzer_pub, frequencies):
-    for freq, on_time, off_time, repeat in frequencies:
-        buzzer_msg = BuzzerState()
-        buzzer_msg.freq = freq
-        buzzer_msg.on_time = on_time
-        buzzer_msg.off_time = off_time
-        buzzer_msg.repeat = repeat
-        
-        print(f"Playing frequency: {freq} Hz for {on_time} sec (repeat: {repeat})")
-        buzzer_pub.publish(buzzer_msg)
-        rospy.sleep((on_time + off_time) * repeat + 0.5)  # Adding a buffer between sounds
+# 音符频率表 (Note frequencies in Hz)
+NOTE_FREQS = {
+    "B4": 494,
+    "C5": 523,
+    "D5": 587,
+    "E5": 659,
+    "F5": 698,
+    "G5": 784,
+    "A5": 880
+}
+
+# "Jingle Bells" 音符列表 ([note, duration_in_seconds])
+JINGLE_BELLS = [
+    ("E5", 0.5), ("E5", 0.5), ("E5", 1.0),
+    ("E5", 0.5), ("E5", 0.5), ("E5", 1.0),
+    ("E5", 0.5), ("G5", 0.5), ("C5", 0.5), ("D5", 0.5), ("E5", 2.0),
+    ("F5", 0.5), ("F5", 0.5), ("F5", 0.5), ("F5", 0.5),
+    ("F5", 0.5), ("E5", 0.5), ("E5", 0.5), ("E5", 0.5), ("E5", 0.5),
+    ("E5", 0.5), ("D5", 0.5), ("D5", 0.5), ("E5", 0.5), ("D5", 1.0), ("G5", 1.0)
+]
+
+def play_tune(buzzer_pub, tune):
+    for note, duration in tune:
+        if note in NOTE_FREQS:
+            freq = NOTE_FREQS[note]
+            buzzer_msg = BuzzerState()
+            buzzer_msg.freq = freq
+            buzzer_msg.on_time = duration
+            buzzer_msg.off_time = 0.1  # Short pause between notes
+            buzzer_msg.repeat = 1
+
+            print(f"Playing note: {note} ({freq} Hz) for {duration} sec")
+            buzzer_pub.publish(buzzer_msg)
+            rospy.sleep(duration + 0.1)  # Wait for note duration + pause
 
 if __name__ == '__main__':
     try:
         # 初始化节点 (Initialize Node)
-        rospy.init_node('buzzer_control_demo')
-        
+        rospy.init_node('buzzer_christmas_tune')
+
         buzzer_pub = rospy.Publisher("/ros_robot_controller/set_buzzer", BuzzerState, queue_size=1)
         rospy.sleep(0.5)  # 延时 (Delay)
 
-        # 定义要播放的频率列表 (List of frequencies to play: [frequency, on_time, off_time, repeat])
-        frequencies = [
-            (1000, 1, 0.5, 2),  # 1000 Hz for 1 sec, 0.5 sec off, repeated 2 times
-            (1500, 0.5, 0.5, 3),  # 1500 Hz for 0.5 sec, 0.5 sec off, repeated 3 times
-            (2000, 2, 1, 1),  # 2000 Hz for 2 sec, 1 sec off, repeated once
-            (2500, 1, 0.2, 4)  # 2500 Hz for 1 sec, 0.2 sec off, repeated 4 times
-        ]
+        # 播放 "Jingle Bells" (Play Jingle Bells tune)
+        play_tune(buzzer_pub, JINGLE_BELLS)
 
-        # 播放频率 (Play the frequencies)
-        play_frequencies(buzzer_pub, frequencies)
-
-        print("Buzzer sequence complete!")
+        print("Jingle Bells tune complete!")
 
     except rospy.ROSInterruptException:
         print("Program interrupted before completion.")
