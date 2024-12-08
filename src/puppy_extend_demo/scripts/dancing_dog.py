@@ -6,7 +6,7 @@ import sys
 import threading
 import queue
 import rospy
-from ros_robot_controller.msg import BuzzerState
+from ros_robot_controller.msg import BuzzerState, RGBState, RGBsState
 from enum import Enum
 
 class NoteFreq(Enum):
@@ -41,12 +41,11 @@ class NoteFreq(Enum):
 
 class Duration(Enum):
     """Enumeration for note durations as fractions of a whole note."""
-    WHOLE = 1.0       # Whole note
-    HALF = 0.5        # Half note
-    QUARTER = 0.25    # Quarter note
-    EIGHTH = 0.125    # Eighth note
-    SIXTEENTH = 0.0625 # Sixteenth note
-
+    WHOLE = 1.0
+    HALF = 0.5
+    QUARTER = 0.25
+    EIGHTH = 0.125
+    SIXTEENTH = 0.0625
 
 class Song:
     """Class to represent a song with name, BPM, and notes."""
@@ -64,8 +63,8 @@ class Song:
             note_duration = self.whole_note_duration * duration.value
             self.note_queue.put((note, note_duration))
 
-    def play_next_note(self, buzzer_pub):
-        """Play the next note in the queue."""
+    def play_next_note(self, buzzer_pub, rgb_pub):
+        """Play the next note in the queue and sync LED with note."""
         if not self.note_queue.empty():
             note, note_duration = self.note_queue.get()
             buzzer_msg = BuzzerState()
@@ -74,31 +73,43 @@ class Song:
             buzzer_msg.off_time = 0.1
             buzzer_msg.repeat = 1
 
+            # Sync LED colors based on the note
+            rgb_msg = RGBsState()
+            led = RGBState()
+            led.id = 1  # Assuming LED 1 for simplicity
             if note == NoteFreq.REST:
+                led.r, led.g, led.b = 0, 0, 0  # Turn off LED during rest
                 print(f"Rest for {note_duration:.2f} sec")
             else:
+                # Map note frequencies to colors (simple mapping example)
+                led.r = (note.value * 3) % 256
+                led.g = (note.value * 7) % 256
+                led.b = (note.value * 5) % 256
                 print(f"Playing note: {note.name} ({note.value} Hz) for {note_duration:.2f} sec")
 
+            rgb_msg.data = [led]
             buzzer_pub.publish(buzzer_msg)
-            threading.Timer(note_duration + buzzer_msg.off_time, self.play_next_note, [buzzer_pub]).start()
+            rgb_pub.publish(rgb_msg)
+
+            threading.Timer(note_duration + buzzer_msg.off_time, self.play_next_note, [buzzer_pub, rgb_pub]).start()
         else:
             print(f"'{self.name}' complete!")
             if self.on_complete:
                 self.on_complete()
 
-    def play(self, buzzer_pub):
+    def play(self, buzzer_pub, rgb_pub):
         """Start playing the song asynchronously."""
         print(f"Starting '{self.name}' at {self.bpm} BPM")
         self.queue_notes()
-        self.play_next_note(buzzer_pub)
+        self.play_next_note(buzzer_pub, rgb_pub)
 
-def play_songs_in_sequence(buzzer_pub, songs):
+def play_songs_in_sequence(buzzer_pub, rgb_pub, songs):
     """Play all songs in sequence and exit when done."""
     def play_next():
         if songs:
             current_song = songs.pop(0)
             current_song.on_complete = play_next
-            current_song.play(buzzer_pub)
+            current_song.play(buzzer_pub, rgb_pub)
         else:
             rospy.signal_shutdown("All songs completed.")
             sys.exit(0)
@@ -139,12 +150,12 @@ if __name__ == '__main__':
         rospy.init_node('buzzer_song_player')
 
         buzzer_pub = rospy.Publisher("/ros_robot_controller/set_buzzer", BuzzerState, queue_size=1)
+        rgb_pub = rospy.Publisher("/ros_robot_controller/set_rgb", RGBsState, queue_size=1)
         rospy.sleep(0.5)  # Delay for publisher setup
-
 
         # Play songs in sequence
         songs_to_play = [fur_elise, jingle_bells]
-        play_songs_in_sequence(buzzer_pub, songs_to_play)
+        play_songs_in_sequence(buzzer_pub, rgb_pub, songs_to_play)
 
         # Keep the main thread alive
         rospy.spin()
